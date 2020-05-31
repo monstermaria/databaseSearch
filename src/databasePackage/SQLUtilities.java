@@ -6,10 +6,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 
 public class SQLUtilities {
 	static Connection connection;
+	static HashMap<String, Statement> preparedStatements;
 	
 	static boolean hasConnection() throws SQLException {
 		
@@ -24,6 +26,53 @@ public class SQLUtilities {
 		return true;
 	}
 	
+	static void prepareStatements() throws SQLException {
+		
+		preparedStatements = new HashMap<>();
+		Statement statement;
+		
+		if (!hasConnection()) {
+			System.out.println("prepareStatements: Database connection error");
+
+			return;
+		}
+		
+		System.out.println("prepareStatements");
+		
+		// get the names of all tables
+		ArrayList<String> tableNames = getTableNames();
+		
+		// make prepared statements for all tables
+		for (String tableName : tableNames) {
+
+			// get the column names for current table
+			ArrayList<String> columnNames = getColumnNames(tableName);
+			
+			System.out.println("Columns: " + columnNames);
+			
+			// put together search string
+			String searchString = "SELECT * FROM " + tableName + " WHERE ";
+			
+			if (columnNames.size() == 0) {
+				break;
+			}
+			
+			searchString += tableName + "." + columnNames.get(0) + " LIKE '%?%'";
+			
+			for (int i = 1; i < columnNames.size(); i++) {
+				searchString += " OR " + tableName + "." + columnNames.get(i) + " LIKE '%?%'";
+			}
+			
+			System.out.println(searchString);
+			
+			// create prepared statement
+			statement = connection.prepareStatement(searchString);
+
+			// store prepared statement for later use
+			preparedStatements.put(tableName, statement);	
+		}
+	}
+
 	static ResultSet query(String sqlStatement) throws SQLException {
 		Statement statement;
 		ResultSet resultSet = null;
@@ -189,10 +238,12 @@ public class SQLUtilities {
 		
 		return htmlResult;
 	}
-	
+		
 	static String getSearchResults(String searchTerm) throws SQLException {
 		
 		String htmlResult = "";
+		
+		prepareStatements();
 		
 		// primary search
 		System.out.println("getSearchResults: before primary search");
