@@ -2,16 +2,16 @@ package databasePackage;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 
 public class SQLUtilities {
 	static Connection connection;
-	static HashMap<String, Statement> preparedStatements;
+	static ArrayList<PreparedStatement> preparedStatements;
 	
 	static boolean hasConnection() throws SQLException {
 		
@@ -28,8 +28,8 @@ public class SQLUtilities {
 	
 	static void prepareStatements() throws SQLException {
 		
-		preparedStatements = new HashMap<>();
-		Statement statement;
+		preparedStatements = new ArrayList<>();
+		PreparedStatement statement;
 		
 		if (!hasConnection()) {
 			System.out.println("prepareStatements: Database connection error");
@@ -57,10 +57,10 @@ public class SQLUtilities {
 				break;
 			}
 			
-			searchString += tableName + "." + columnNames.get(0) + " LIKE '%?%'";
+			searchString += tableName + "." + columnNames.get(0) + " LIKE ?";
 			
 			for (int i = 1; i < columnNames.size(); i++) {
-				searchString += " OR " + tableName + "." + columnNames.get(i) + " LIKE '%?%'";
+				searchString += " OR " + tableName + "." + columnNames.get(i) + " LIKE ?";
 			}
 			
 			System.out.println(searchString);
@@ -69,7 +69,7 @@ public class SQLUtilities {
 			statement = connection.prepareStatement(searchString);
 
 			// store prepared statement for later use
-			preparedStatements.put(tableName, statement);	
+			preparedStatements.add(statement);	
 		}
 	}
 
@@ -150,6 +150,40 @@ public class SQLUtilities {
 		// execute search
 		return query(searchString);
 		
+	}
+	
+	static ArrayList<ResultSet> searchAllTablesWithPreparedStatements(String searchTerm) throws SQLException {
+		
+		ArrayList<ResultSet> searchResults = new ArrayList<>();
+		
+		System.out.println("Search all tables for " + searchTerm);
+		
+		if (searchTerm.contentEquals("")) {
+			System.out.println("searchAllTablesWithPreparedStatements: Search term can't be empty");
+			return searchResults;
+		}
+		
+		for (PreparedStatement statement : preparedStatements) {
+			
+			// set parameters
+			int parameterCount = statement.getParameterMetaData().getParameterCount();
+			
+			System.out.println("number of parameters: " + parameterCount);
+			
+			for (int i = 1; i <= parameterCount; i++) {
+				statement.setString(i, "%" + searchTerm + "%");
+			}
+			
+			// execute statement
+			if (statement.execute()) {
+				ResultSet resultSet = statement.getResultSet();
+				searchResults.add(resultSet);
+			}
+		}
+				
+		System.out.println("Results ArrayList.size(): " + searchResults.size());
+		
+		return searchResults;
 	}
 	
 	static ArrayList<ResultSet> searchAllTables(String searchTerm) throws SQLException {
@@ -247,9 +281,16 @@ public class SQLUtilities {
 		
 		// primary search
 		System.out.println("getSearchResults: before primary search");
-		ArrayList<ResultSet> resultSets = searchAllTables(searchTerm);
+		ArrayList<ResultSet> resultSets = searchAllTablesWithPreparedStatements(searchTerm);
+//		ArrayList<ResultSet> resultSets = searchAllTables(searchTerm);
 		System.out.println("getSearchResults: after primary search");
-		
+	
+		// handle primary search result sets
+		for (ResultSet resultSet : resultSets) {
+			
+			htmlResult = addHtmlTableFromResultSet(resultSet, htmlResult);
+		}
+
 		// secondary search
 		String[] words = searchTerm.split(" ");
 		System.out.println(words.toString());
@@ -258,16 +299,17 @@ public class SQLUtilities {
 			// do not include short words in secondary search
 			// they will usually produce irrelevant results
 			if (word.length() > 3) {
-				resultSets.addAll(searchAllTables(word));	
+				resultSets = searchAllTablesWithPreparedStatements(word);
+//				resultSets.addAll(searchAllTables(word));	
+				
+				// handle secondary search result sets
+				for (ResultSet resultSet : resultSets) {
+					
+					htmlResult = addHtmlTableFromResultSet(resultSet, htmlResult);
+				}
 			}
 		}
 
-		// handle all result sets
-		for (ResultSet resultSet : resultSets) {
-			
-			htmlResult = addHtmlTableFromResultSet(resultSet, htmlResult);
-		}
-		
 		return htmlResult;
 	}
 }
