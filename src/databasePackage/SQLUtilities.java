@@ -198,6 +198,18 @@ public class SQLUtilities {
 		System.out.println("getSearchResults: before primary search");
 		ArrayList<ResultSet> resultSets = searchAllTables(searchTerm);
 		System.out.println("getSearchResults: after primary search");
+		
+		// secondary search
+		String[] words = searchTerm.split(" ");
+		System.out.println(words.toString());
+		
+		for (String word : words) {
+			// do not include short words in secondary search
+			// they will usually produce irrelevant results
+			if (word.length() > 3) {
+				resultSets.addAll(searchAllTables(word));	
+			}
+		}
 
 		// handle all result sets
 		for (ResultSet resultSet : resultSets) {
