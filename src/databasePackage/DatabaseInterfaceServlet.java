@@ -45,13 +45,15 @@ public class DatabaseInterfaceServlet extends HttpServlet {
 		String search = request.getParameter("search");
 		String searchResult = "";
 				
+		System.out.println("Servlet post method");
+		System.out.println("Search: " + search);
+
 		try {
 			searchResult = SQLUtilities.getSearchResults(search);
-		} catch (SQLException e) {
+			System.out.println("searchResult returned " + searchResult);
+		} catch (Exception e) {
 			searchResult = "<p>" + e.toString() + "</p>";
-		    System.out.println("SQLException: " + e.getMessage());
-		    System.out.println("SQLState: " + e.getSQLState());
-		    System.out.println("VendorError: " + e.getErrorCode());
+		    System.out.println("doPost: " + e);
 		}		
 		
 		request.setAttribute("searchResult", searchResult);
@@ -70,13 +72,12 @@ public class DatabaseInterfaceServlet extends HttpServlet {
 		String searchResult = "";
 		
 		System.out.println("Servlet post method");
-		System.out.println(SQLUtilities.hasConnection());
 		System.out.println("Search: " + search);
 		
 		try {
 			searchResult = SQLUtilities.getSearchResults(search);
 		} catch (SQLException e) {
-			searchResult = e.toString();
+			searchResult = e.getMessage();
 		    System.out.println("SQLException: " + e.getMessage());
 		    System.out.println("SQLState: " + e.getSQLState());
 		    System.out.println("VendorError: " + e.getErrorCode());
